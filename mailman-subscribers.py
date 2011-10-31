@@ -239,7 +239,8 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "ho:rd:fn:cu:Uv",
                 ["help", "output=", "regular", "digest=", "fullnames",
-                 "nomail=", "csv", "url_path=", "unhide", "verbose"])
+                 "nomail=", "csv", "url_path=", "unhide", "verbose",
+                 "ssl"])
     except:
         usage(2)
     fp = sys.stdout
@@ -250,6 +251,7 @@ def main():
     digest = None
     csv = False
     unhide = False
+    use_ssl = False
     url_path = '/mailman/admin'
     for o,a in opts:
         if o in ("-v", "--verbose"):
@@ -272,6 +274,8 @@ def main():
             url_path = a
         if o in ("-U", "--unhide"):
             unhide = True
+        if o in ("--ssl"):
+            use_ssl = True
     if regular and digest:
         usage(2, "Both 'regular' and 'digest' will produce an empty list.")
     if digest not in [None, 'any', 'mime', 'plain']:
@@ -281,12 +285,17 @@ def main():
         usage(2, "Nomail type %s unrecognized" % nomail)
     if len(args) != 3:
         usage(2)
-    member_url = 'http://%s%s/%s/members' % (args[0], url_path, args[1])
-    options_url = 'http://%s%s/%s' % (args[0], re.sub('admin', 'options',
+
+    if use_ssl:
+        proto='https'
+    else:
+        proto='http'
+
+    member_url = '%s://%s%s/%s/members' % (proto, args[0], url_path, args[1])
+    options_url = '%s://%s%s/%s' % (proto, args[0], re.sub('admin', 'options',
                                                       url_path),
                                       args[1])
     p = {'adminpw':args[2]}
-        
 
     # login, picking up the cookie
     try:
