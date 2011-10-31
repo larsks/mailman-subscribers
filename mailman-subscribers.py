@@ -47,6 +47,7 @@
 #                   verbose. Also, csv printed "on" for members changed to
 #                   unhidden. Fixed.
 # 2011-10-24 mas    Added type to nomail selection.
+# 2011-10-31 lks    Added --ssl option.
 
 """List the email addresses subscribed to a mailing list, fetched from web.
 
