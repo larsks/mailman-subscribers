@@ -261,7 +261,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], "ho:rd:fn:cu:UvsP:",
                 ["help", "output=", "regular", "digest=", "fullnames",
                  "nomail=", "csv", "url_path=", "unhide", "verbose",
-                 "ssl", "password-file"])
+                 "ssl", "password-file="])
     except:
         usage(2, "unrecognized option.")
     fp = sys.stdout
