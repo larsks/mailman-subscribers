@@ -55,7 +55,7 @@
 
 """List the email addresses subscribed to a mailing list, fetched from web.
 
-Usage: %(PROGRAM)s [options] hostname listname password
+Usage: %(PROGRAM)s [options] hostname listname [password]
 
 Where:
    --output file
@@ -127,6 +127,10 @@ Where:
    --ssl
    -s
        Use https instead of http for accessing the list.
+
+   --password-file path
+   -P path
+     Read the admin password form <path> instead of from the command line.
 
    --verbose
    -v
@@ -254,12 +258,12 @@ class MailmanHTMLParser(HTMLParser):
 def main():
     global maxchunk, letters, url_path
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ho:rd:fn:cu:Uvs",
+        opts, args = getopt.getopt(sys.argv[1:], "ho:rd:fn:cu:UvsP:",
                 ["help", "output=", "regular", "digest=", "fullnames",
                  "nomail=", "csv", "url_path=", "unhide", "verbose",
-                 "ssl"])
+                 "ssl", "password-file"])
     except:
-        usage(2)
+        usage(2, "unrecognized option.")
     fp = sys.stdout
     fullnames = False
     nomail = None
@@ -268,6 +272,7 @@ def main():
     digest = None
     csv = False
     unhide = False
+    passwd_file = None
     protocol = 'http'
     url_path = '/mailman/admin'
     for o,a in opts:
@@ -293,6 +298,8 @@ def main():
             unhide = True
         if o in ("-s", "--ssl"):
             protocol = 'https'
+        if o in ("-P", "--password-file"):
+            passwd_file = a
     if regular and digest:
         usage(2, "Both 'regular' and 'digest' will produce an empty list.")
     if digest not in [None, 'any', 'mime', 'plain']:
@@ -300,16 +307,21 @@ def main():
     if nomail not in [None, 'any', 'admin', 'bounce', 'user', 'unknown',
                       'enabled']:
         usage(2, "Nomail type %s unrecognized" % nomail)
-    if len(args) != 3:
-        usage(2)
+    if (passwd_file and len(args) != 2) or (not passwd_file and len(args) != 3):
+        usage(2, "You must provide a password via the command line or --password-file.")
 
     member_url = '%s://%s%s/%s/members' % (protocol, args[0], url_path,
                                            args[1])
     options_url = '%s://%s%s/%s' % (protocol, args[0],
                                     re.sub('admin', 'options', url_path),
                                     args[1])
-    p = {'adminpw':args[2]}
-        
+
+    if passwd_file:
+        passwd = open(passwd_file).read().rstrip()
+    else:
+        passwd = args[2]
+
+    p = {'adminpw':passwd}
 
     # login, picking up the cookie
     try:
