@@ -11,7 +11,7 @@
 #                     of ClientCookie is detected
 # 2005-02-16 jwt    use Python 2.4's cookielib if it is available
 # 2005-02-27 jwt    only visit the roster page for letters that exist
-# 2005-06-04 mas    add --nomail option (Mark Sapiro <msapiro.value.net>)
+# 2005-06-04 mas    add --nomail option (Mark Sapiro <mark@msapiro.net>)
 # 2005-06-14 jwt    handle chunks of email addresses starting [0-9]*
 # 2006-01-27 mas    Retry urllib2.URLError exceptions in main loop.
 #                   Modify parser to get most of the member attributes on the
@@ -47,7 +47,11 @@
 #                   verbose. Also, csv printed "on" for members changed to
 #                   unhidden. Fixed.
 # 2011-10-24 mas    Added type to nomail selection.
-# 2011-10-31 lks    Added --ssl option.
+# 2012-10-20 mas    Encode real name as iso-8859-1 to avoid Unicode error
+#                   with non-ascii.
+# 2012-11-14 jak    Added support to use HTTPS (james@jameskinnaird.ca)
+# 2013-01-25 mas    Revised the help for -u.
+#
 
 """List the email addresses subscribed to a mailing list, fetched from web.
 
@@ -101,17 +105,28 @@ Where:
    -u path
        If the list admin pages are accessed at your site via a URL of form
        different from http://hostname/mailman/admin/listname, you need to
-       specify the path portion of the URL preceeding the listname with
-       this option. For example, a URL such as
+       specify the path portion of the URL that is between hostname and
+       /listname with this option. For example, a URL such as
        http://hostname/admin.cgi/listname requires the option
        --url_path /admin.cgi
-       default value is /mailman/admin.
+       or
+       -u /admin.cgi
+       and a URL like http://hostname/cgi-bin/mailman/admin/listname
+       requires the option
+       --url_path /cgi-bin/mailman/admin
+       or
+       -u /cgi-bin/mailman/admin
+       Default value is /mailman/admin.
 
    --unhide
    -U
        Set the 'hidden' flag off for all list members including those not
        selected for output.  This will take a long time if there are a lot
        of hidden members.  The -v option prints '.' after every 100 unhides.
+
+   --ssl
+   -s
+       Use https instead of http for accessing the list.
 
    --verbose
    -v
@@ -129,7 +144,7 @@ Where:
    interface.  Using the bin/list_members program from a shell
    account is preferable, but not always available.
 
-   Tested with the Mailman 2.1.5 - 2.1.13 Membership list layout.
+   Tested with the Mailman 2.1.5 - 2.1.15 Membership list layout.
 
    If Python 2.4's cookielib is available,  use it.  Otherwise require
    ClientCookie  http://wwwsearch.sourceforge.net/ClientCookie/
@@ -215,7 +230,8 @@ class MailmanHTMLParser(HTMLParser):
                     if vname == '_nomail' and subval == "on":
                         gotnomail = True
                     else:
-                        subscribers[subemail][vname] = subval
+                        subscribers[subemail][vname] = subval.encode(
+                                                       'iso-8859-1', 'replace')
         if tag == 'a':
             for a,v in attrs:
                 if a == 'href' and v.find("%s/" % (url_path)) >= 0:
@@ -238,7 +254,7 @@ class MailmanHTMLParser(HTMLParser):
 def main():
     global maxchunk, letters, url_path
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ho:rd:fn:cu:Uv",
+        opts, args = getopt.getopt(sys.argv[1:], "ho:rd:fn:cu:Uvs",
                 ["help", "output=", "regular", "digest=", "fullnames",
                  "nomail=", "csv", "url_path=", "unhide", "verbose",
                  "ssl"])
@@ -252,7 +268,7 @@ def main():
     digest = None
     csv = False
     unhide = False
-    use_ssl = False
+    protocol = 'http'
     url_path = '/mailman/admin'
     for o,a in opts:
         if o in ("-v", "--verbose"):
@@ -275,8 +291,8 @@ def main():
             url_path = a
         if o in ("-U", "--unhide"):
             unhide = True
-        if o in ("--ssl"):
-            use_ssl = True
+        if o in ("-s", "--ssl"):
+            protocol = 'https'
     if regular and digest:
         usage(2, "Both 'regular' and 'digest' will produce an empty list.")
     if digest not in [None, 'any', 'mime', 'plain']:
@@ -287,16 +303,13 @@ def main():
     if len(args) != 3:
         usage(2)
 
-    if use_ssl:
-        proto='https'
-    else:
-        proto='http'
-
-    member_url = '%s://%s%s/%s/members' % (proto, args[0], url_path, args[1])
-    options_url = '%s://%s%s/%s' % (proto, args[0], re.sub('admin', 'options',
-                                                      url_path),
-                                      args[1])
+    member_url = '%s://%s%s/%s/members' % (protocol, args[0], url_path,
+                                           args[1])
+    options_url = '%s://%s%s/%s' % (protocol, args[0],
+                                    re.sub('admin', 'options', url_path),
+                                    args[1])
     p = {'adminpw':args[2]}
+        
 
     # login, picking up the cookie
     try:
